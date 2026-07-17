@@ -193,7 +193,7 @@
     if (words) parts.push(fmtHours(words) + " of reading");
     parts.push(links.length + " links saved");
     if (staleAt !== null) {
-      parts.push('<span class="stale">GoodLinks unreachable — cached list' +
+      parts.push('<span class="stale">Offline — cached list' +
         (staleAt ? " from " + fmtDate(staleAt) : "") + "</span>");
     }
     $("queue-line").innerHTML = parts.join(" · ");
@@ -259,10 +259,17 @@
     render();
   });
 
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }
+
   fetch("/api/links")
     .then(async (r) => {
       if (!r.ok) throw new Error((await r.json()).detail || "Request failed (" + r.status + ")");
-      return r.json();
+      const data = await r.json();
+      data.stale = r.headers.get("X-Stale") === "true";
+      data.cachedAt = r.headers.get("X-Cached-At");
+      return data;
     })
     .then((data) => {
       links = data.links;
