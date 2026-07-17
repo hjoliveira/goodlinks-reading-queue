@@ -27,5 +27,8 @@ Optional environment variables:
 | `GOODLINKS_API`  | `http://localhost:9428/api/v1`   | Base URL of the GoodLinks API                        |
 | `PORT`           | `8300`                           | Port for this server                                 |
 | `HOST`           | `127.0.0.1`                      | Bind address (`0.0.0.0` to expose on your Tailnet)   |
+| `GOODLINKS_CACHE`| `~/.cache/goodlinks-viewer/links.json` | Path of the on-disk link cache               |
 
 Links are cached for 60 seconds; hit `/api/links?refresh=true` to force a refetch.
+
+Every successful fetch is also written to the on-disk cache. If GoodLinks is unreachable (quit, API disabled, or the Mac just woke up), the page still loads with the last known list — even across server restarts — and shows a "GoodLinks unreachable" notice with the cache date. A 502 is returned only when there is no cached copy at all.

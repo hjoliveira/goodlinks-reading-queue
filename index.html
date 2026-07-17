@@ -49,6 +49,7 @@
     margin-top: 0.3rem;
   }
   .queue-line strong { color: var(--accent); font-weight: 600; }
+  .queue-line .stale { color: #b4432e; }
 
   .controls {
     display: flex;
@@ -161,6 +162,7 @@
   let links = [];
   let mode = "unread";
   let activeTag = "";
+  let staleAt = null;
 
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -190,6 +192,10 @@
     const parts = ["<strong>" + unread.length + " unread</strong>"];
     if (words) parts.push(fmtHours(words) + " of reading");
     parts.push(links.length + " links saved");
+    if (staleAt !== null) {
+      parts.push('<span class="stale">GoodLinks unreachable — cached list' +
+        (staleAt ? " from " + fmtDate(staleAt) : "") + "</span>");
+    }
     $("queue-line").innerHTML = parts.join(" · ");
   }
 
@@ -260,6 +266,7 @@
     })
     .then((data) => {
       links = data.links;
+      staleAt = data.stale ? (data.cachedAt || "") : null;
       $("controls").hidden = false;
       $("filters").hidden = false;
       queueLine();
