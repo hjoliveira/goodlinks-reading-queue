@@ -1,6 +1,8 @@
 # GoodLinks MCP server — capability review and proposed tool set
 
-Status: **proposal**, nothing implemented yet.
+Status: the three **read-only** tools in §6.1, §6.9, and §6.10 are implemented
+in `goodlinks_mcp.py`. Everything else here remains a proposal — in particular
+all write tools, which are deliberately out of scope for now.
 Target protocol: MCP revision **2026-07-28** ("MCP2").
 
 ---
@@ -34,6 +36,7 @@ by design — it is meant for trusted apps on the same machine.
 | `GET /links/{id}` | One link by id, all metadata fields. `404` if absent. |
 | `GET /tags` | Every tag with at least one link, as an array of strings. Hierarchical tags come back as full paths (`technology/programming`). |
 | `GET /highlights` | Highlights, filterable and sortable. |
+| `GET /links/{id}/content` | The article text GoodLinks extracted, via an optional `format` query parameter (`markdown`, `plaintext`, `html`). |
 
 Filter parameters observed on the list/search endpoints:
 
@@ -93,9 +96,11 @@ the tool design:
   exist, but no endpoint was confirmed.
 - **Tag management.** No confirmed rename/delete/merge endpoint. `GET /tags`
   returning bare strings (no per-tag counts) is also **unverified**.
-- **Article body retrieval.** Content is *searchable*, but no endpoint was
-  confirmed that *returns* the extracted article text. If one exists it changes
-  the calculus significantly — see the optional `read_article` tool in §6.
+- ~~**Article body retrieval.**~~ **Resolved:** `GET /links/{id}/content`
+  returns the extracted text, with an optional `format` of `markdown`,
+  `plaintext`, or `html`. Implemented as `goodlinks_get_article_content`
+  (§6.9). The exact spelling of the format values is still worth confirming
+  against a live instance; the tool passes them straight through.
 - **Sorting.** Only "newest added first" is confirmed. If a `sort`/`order`
   parameter exists, `search_links` should expose it instead of faking order
   client-side.
@@ -140,7 +145,18 @@ uses a 60-second TTL) must stay a per-process optimisation, never something a
 subsequent call depends on.
 
 **Cacheable `tools/list`.** The tool list is completely static. Advertise a
-long `ttlMs` (an hour) with a broad `cacheScope` so clients stop re-listing.
+long `ttlMs` (an hour) with a `cacheScope` so clients stop re-listing.
+
+One caveat found while implementing this, worth knowing before you count on
+it: **2026-07-28 is not reachable through the `initialize` handshake.** In the
+Python SDK, `HANDSHAKE_PROTOCOL_VERSIONS` tops out at `2025-11-25`, and
+`2026-07-28` is a "modern" per-request-envelope revision negotiated only over
+HTTP. A client launching this server over **stdio therefore negotiates
+2025-11-25**, and the runner correctly strips `ttlMs`/`cacheScope` from the
+result because those fields do not exist in that revision's surface. The hints
+are live over streamable HTTP (verified: `ttlMs: 3600000, cacheScope: private`)
+and inert over stdio. Nothing breaks either way — but "we set cache hints" and
+"clients receive cache hints" are not the same claim.
 
 **Multi Round-Trip Requests.** Instead of a bolted-on `confirm: true`
 parameter, destructive and ambiguous operations return
@@ -168,10 +184,21 @@ network interface.
 
 ## 6. Proposed tools
 
-Eight core tools. Names are verb-first and unambiguous, because the agent
-picks by name before it reads the description.
+Names are verb-first and unambiguous, because the agent picks by name before
+it reads the description.
 
-### 6.1 `search_links` — the workhorse
+**Three are implemented** — §6.1, §6.9, and §6.10 — under a `goodlinks_` prefix
+to avoid colliding with other servers in the same client: `goodlinks_search_links`,
+`goodlinks_get_article_content`, `goodlinks_list_links`. They issue only GET
+requests, so the server cannot modify the library. Where the shipped
+parameters differ from the sketch below, the code is authoritative: `list` is
+spelled `list_name`, and `limit` is capped at 200 rather than 100.
+
+Everything from §6.2 to §6.8 is unbuilt. `get_link` (§6.2), `list_tags`
+(§6.6), and `get_highlights` (§6.7) are read-only and could be added without
+changing the server's safety story; the rest write.
+
+### 6.1 `search_links` — the workhorse *(implemented)*
 
 Covers `GET /lists/{list}` and `GET /links` search in one surface. Most
 sessions will use only this tool.
@@ -342,6 +369,73 @@ unread links whose `wordCount` fits the budget, preferring starred and older
 items. Reading speed is a stated assumption, not a fact — it belongs in the
 tool description so the agent can caveat it.
 
+### 6.9 `get_article_content` *(implemented)*
+
+Wraps `GET /links/{id}/content`. This is the tool that makes the server more
+than a catalogue browser: it returns the text GoodLinks already extracted, so
+an agent can summarise or quote a saved article without re-fetching the page
+from the web.
+
+```jsonc
+{
+  "link_id":     "string",                          // from search or list
+  "format":      "markdown|plaintext|html",         // default "markdown"
+  "max_chars":   "integer?",                        // default 20000, max 200000
+  "char_offset": "integer?"                         // default 0
+}
+```
+
+Returns `{ content, format, link_id, title, url, word_count, char_offset,
+chars_returned, total_chars, truncated, next_char_offset }`.
+`readOnlyHint: true`.
+
+Three decisions worth recording:
+
+- **Slicing, not truncation.** A long article is returned `max_chars` at a
+  time with a `next_char_offset` to continue, so the agent can read the rest
+  when it genuinely needs to instead of being silently cut off.
+- **Metadata comes along.** The tool also fetches `/links/{id}` so the text
+  arrives with its title and URL attached. It is a second local request, but a
+  wall of prose with no attribution is worse.
+- **The response shape is defensive.** The endpoint could reasonably serve
+  text directly or wrap it in JSON; the client handles both rather than
+  breaking on a shape it could have parsed.
+
+`format: "markdown"` is the default because it preserves headings and lists
+that plaintext flattens, at a fraction of HTML's token cost.
+
+### 6.10 `list_links` *(implemented)*
+
+Retrieves the links in one named list — the "show me my unread queue" tool,
+where §6.1 is the "what have I saved about X" tool. Splitting them means each
+tool has one obvious job: `search_links` requires a `query`, `list_links`
+requires a `list_name` and takes no search text.
+
+```jsonc
+{
+  "list_name":    "all|unread|starred|read|tagged|untagged",  // required
+  "tags":         "string[]?",   // OR semantics
+  "include_read": "boolean?",    // only affects starred/untagged lists
+  "added_after":  "string?",
+  "added_before": "string?",
+  "min_words":    "integer?",
+  "max_words":    "integer?",
+  "detail":       "compact|full",
+  "limit":        "integer?",    // default 50, max 200
+  "offset":       "integer?"
+}
+```
+
+Returns the same `LinkResults` shape as `search_links`, which is deliberate:
+one response schema for both tools means the agent learns the pagination
+contract once.
+
+On "retrieve **all** links in a list": a library can hold thousands, and a
+single response holding all of them would be worse than useless in a context
+window even though the API would allow `limit=1000`. The tool caps a call at
+200 and reports `has_more`/`next_offset`, so "all" is reachable by paging and
+is never silently faked. Filtering beats paging in almost every real case.
+
 ### Optional, pending verification
 
 - **`bulk_update_links`** — apply the same `read`/`starred`/`addTags`/
@@ -381,29 +475,45 @@ Suggested layout:
 
 ```
 goodlinks_client.py     # shared async client: auth, paging, error translation
-goodlinks_server.py     # existing FastAPI viewer, imports the client
-goodlinks_mcp.py        # MCP2 server, imports the client
+goodlinks_server.py     # existing FastAPI viewer
+goodlinks_mcp.py        # MCP server, imports the client
 ```
+
+`goodlinks_client.py` exists and backs the MCP server. The viewer has **not**
+been switched over to it — it works today, and rewriting a component nobody
+asked about is a poor trade against the small duplication. Adopting it there
+is a clean follow-up whenever the viewer is next touched.
 
 Config stays environment-driven and identical to today: `GOODLINKS_TOKEN`,
 `GOODLINKS_API`.
 
 Phasing:
 
-1. Shared client + `search_links`, `get_link`, `list_tags` (read-only; useful
-   immediately, nothing can be damaged).
-2. `save_link`, `update_link`, `get_highlights`.
-3. `delete_links` with the MRT confirmation flow, then `summarize_queue`.
-4. Optional tools, once §3 is resolved against a live instance.
+1. ~~Shared client + read-only tools.~~ **Done:** `goodlinks_client.py` plus
+   `search_links`, `list_links`, `get_article_content`.
+2. The remaining read-only tools, if wanted: `get_link`, `list_tags`,
+   `get_highlights`. Additive, and they keep the server unable to write.
+3. Writes, if ever: `save_link`, `update_link`, then `delete_links` with the
+   MRT confirmation flow. This is the step that changes the server's risk
+   profile, and should be a deliberate decision rather than a drift.
+4. `summarize_queue` and the optional tools, once §3 is resolved against a
+   live instance.
 
 ---
 
 ## 8. Open questions
 
-1. Should the MCP server reuse the viewer's 60-second cache? It makes repeated
-   agent calls fast, but a stale read immediately after a write is confusing.
-   Recommendation: cache reads, invalidate the whole cache on any write.
-2. Is `summarize_queue`'s ~230 wpm assumption worth making configurable via an
-   env var, or is a documented constant fine?
-3. Does the user want write tools at all in the first cut, or is a read-only
-   server the right place to start?
+1. ~~Write tools in the first cut?~~ **Answered: read-only.** The shipped
+   server issues GET requests only.
+2. Should the MCP server cache reads the way the viewer does (60s TTL)? It
+   would make repeated agent calls faster. Currently it does not cache at all,
+   which is the right default for a read-only server whose backing library the
+   user is editing in the GoodLinks UI at the same time — a stale list is
+   worse than a fast one.
+3. Is the ~230 wpm behind `reading_minutes` worth making configurable via an
+   env var, or is a documented constant fine? It is currently a constant in
+   `goodlinks_client.py`, and the tool descriptions call it an estimate.
+4. Should the format values for article content (`markdown`/`plaintext`/`html`)
+   be verified against a live GoodLinks instance? They are passed straight
+   through, so a wrong spelling surfaces as a `400` from GoodLinks rather than
+   as silently wrong output — but it would be better to know.
