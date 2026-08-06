@@ -80,9 +80,43 @@ Or register it with a client — for Claude Code:
 claude mcp add goodlinks -- uv run --env-file /full/path/to/.env /full/path/to/goodlinks_mcp.py
 ```
 
-Use absolute paths for both here. An MCP client launches the server from
-whatever working directory it happens to have, so a bare `--env-file .env`
-would find the file only by luck.
+For Claude Desktop, add this to
+`~/Library/Application Support/Claude/claude_desktop_config.json` (create the
+file if it isn't there), then quit and reopen Claude Desktop — closing the
+window is not enough:
+
+```json
+{
+  "mcpServers": {
+    "goodlinks": {
+      "command": "/Users/you/.local/bin/uv",
+      "args": [
+        "run",
+        "--env-file", "/Users/you/goodlinks-reading-queue/.env",
+        "/Users/you/goodlinks-reading-queue/goodlinks_mcp.py"
+      ]
+    }
+  }
+}
+```
+
+Two things about that config are load-bearing:
+
+- **`command` is the absolute path to `uv`**, not `"uv"`. Claude Desktop
+  launches servers from the macOS app environment rather than your shell, so
+  it does not see the `PATH` your terminal has, and `~/.local/bin/uv` is
+  invisible to it. Run `which uv` and paste the result (Homebrew installs sit
+  at `/opt/homebrew/bin/uv`). A server that never appears, with an `ENOENT` in
+  `~/Library/Logs/Claude/mcp-server-goodlinks.log`, is this.
+- **Every path is absolute, `.env` included.** A client launches the server
+  from whatever working directory it happens to have, so a bare
+  `--env-file .env` would find the file only by luck. The script itself is
+  fine either way — Python resolves its `goodlinks_client` import relative to
+  the script, not the working directory.
+
+You can inline the token as an `"env": {"GOODLINKS_TOKEN": "..."}` block
+instead of using `--env-file`. It works, but it puts the credential in a file
+that is easier to share by accident than `.env` is.
 
 Both list tools return at most 200 links per call and report `has_more` plus a
 `next_offset` to page with; long articles come back in `max_chars` slices with
