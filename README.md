@@ -130,6 +130,20 @@ serves it over HTTP instead, which is the only transport on which the
 is reachable; the stdio handshake tops out at 2025-11-25. Keep it on loopback
 either way: the token grants access to your entire reading history.
 
+## Tests
+
+```sh
+uv run test_goodlinks.py
+```
+
+No GoodLinks instance, network, or `.env` is needed — every HTTP call is served
+by an `httpx.MockTransport`, so the suite is hermetic and runs in well under a
+second. It covers the shared client's error translation and query-parameter
+handling, the MCP server's projection, pagination, and tool schemas, and the
+viewer's paging, caching, and error mapping.
+
+Pass pytest arguments straight through, e.g. `uv run test_goodlinks.py -k article`.
+
 ## Offline cache
 
 The browser caches the page and the last fetched link list client-side (a service worker plus Cache Storage). If the server or GoodLinks is unreachable — laptop asleep, app quit, API disabled — the page still loads with the last known list and shows an "Offline — cached list from …" notice. The cache is per-browser and is filled on the first successful visit, so a browser that has never loaded the page while the server was up has nothing to fall back on.
