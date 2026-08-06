@@ -8,7 +8,7 @@ This module owns the two things that are easy to get wrong when talking to
 that API — the auth header and the failure messages — so callers only deal in
 plain dicts and one exception type.
 
-Environment:
+Environment (supplied via `uv run --env-file .env`, or set directly):
     GOODLINKS_TOKEN  API token (required)
     GOODLINKS_API    Base URL (default http://localhost:9428/api/v1)
 """
