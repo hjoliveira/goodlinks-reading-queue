@@ -1,0 +1,44 @@
+name: tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+  schedule:
+    # Mondays, 06:00 UTC. Scheduled runs only ever fire from the default
+    # branch, so this starts working once the workflow is merged there.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # Installed directly rather than via astral-sh/setup-uv: one less
+      # third-party action to keep pinned, and the suite is small enough that
+      # the action's dependency caching would not buy much.
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          # The installer has targeted both of these across versions; adding
+          # both means a change of default does not silently break the run.
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      # Fails loudly here, rather than as a confusing "uv: not found" later.
+      - name: Verify uv is on PATH
+        run: uv --version
+
+      # uv reads the PEP 723 header in the script and provisions Python plus
+      # the test dependencies itself. The suite is hermetic — it mocks every
+      # HTTP call — so no GoodLinks instance, token, or .env is needed.
+      - name: Run tests
+        run: uv run test_goodlinks.py
