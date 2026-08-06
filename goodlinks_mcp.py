@@ -1,10 +1,3 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "mcp>=2.0",
-#     "httpx>=0.27",
-# ]
-# ///
 """Read-only MCP server over the local GoodLinks API.
 
 Exposes three tools:

@@ -474,6 +474,7 @@ messages, rather than drifting apart.
 Suggested layout:
 
 ```
+pyproject.toml          # dependencies for all three, pinned by uv.lock
 goodlinks_client.py     # shared async client: auth, paging, error translation
 goodlinks_server.py     # FastAPI viewer, imports the client
 goodlinks_mcp.py        # MCP server, imports the client
