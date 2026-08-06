@@ -164,9 +164,7 @@ async def _query_links(
     projection behave identically in both.
     """
     try:
-        raw_links, has_more = await gl.fetch_links(
-            list_name, limit=limit, offset=offset, **filters
-        )
+        raw_links, has_more = await gl.fetch_links(list_name, limit=limit, offset=offset, **filters)
     except gl.GoodLinksError as exc:
         raise ValueError(str(exc)) from exc
 
@@ -387,8 +385,10 @@ async def goodlinks_get_article_content(
     ],
     format: Annotated[
         Literal["markdown", "plaintext", "html"],
-        Field(description="Text format. 'markdown' keeps structure and reads well; "
-                          "'plaintext' is smallest; 'html' preserves original markup."),
+        Field(
+            description="Text format. 'markdown' keeps structure and reads well; "
+            "'plaintext' is smallest; 'html' preserves original markup."
+        ),
     ] = "markdown",
     max_chars: Annotated[
         int,
@@ -400,7 +400,10 @@ async def goodlinks_get_article_content(
     ] = DEFAULT_MAX_CHARS,
     char_offset: Annotated[
         int,
-        Field(description="Character offset to start from, for reading a long article in parts", ge=0),
+        Field(
+            description="Character offset to start from, for reading a long article in parts",
+            ge=0,
+        ),
     ] = 0,
 ) -> ArticleContent:
     """Read the text GoodLinks extracted from a saved article.

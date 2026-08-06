@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -37,10 +37,33 @@ jobs:
       - name: Verify uv is on PATH
         run: uv --version
 
+      - name: Lint
+        run: uv run --locked ruff check
+
+      # Runs even when the lint step failed, so one run reports both.
+      - name: Check formatting
+        if: ${{ !cancelled() }}
+        run: uv run --locked ruff format --check
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Verify uv is on PATH
+        run: uv --version
+
       # uv provisions Python and the environment from pyproject.toml, including
       # the dev group that carries pytest. --locked fails if uv.lock has drifted
       # from pyproject.toml rather than silently resolving something else. The
       # suite is hermetic — it mocks every HTTP call — so no GoodLinks instance,
       # token, or .env is needed.
       - name: Run tests
-        run: uv run --locked test_goodlinks.py
+        run: uv run --locked pytest

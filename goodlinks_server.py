@@ -58,7 +58,7 @@ async def api_links(refresh: bool = False) -> JSONResponse:
             _cache["links"] = await fetch_all_links()
             _cache["at"] = time.monotonic()
         except gl.GoodLinksError as exc:
-            raise HTTPException(502, str(exc))
+            raise HTTPException(502, str(exc)) from exc
     return JSONResponse({"links": _cache["links"]})
 
 

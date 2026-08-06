@@ -18,9 +18,44 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "ruff>=0.14",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The modules under test sit at the repo root, not in a package, so the root
+# has to be importable from tests/.
+pythonpath = ["."]
 
 [tool.uv]
 # A set of scripts, not an installable package: there is nothing to build, and
 # uv should only manage the environment they run in.
 package = false
+
+[tool.ruff]
+target-version = "py311"
+# Wider than ruff's default 88: the existing code is written to ~100, and
+# reflowing it would bury the real history under formatting noise.
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # import sorting
+    "UP",  # pyupgrade
+    "B",   # bugbear
+    "SIM", # simplifications
+]
+
+[tool.ruff.lint.isort]
+# Flat modules at the repo root, plus the tests' shared harness.
+known-first-party = ["goodlinks_client", "goodlinks_mcp", "goodlinks_server", "conftest"]
+
+[tool.ruff.lint.per-file-ignores]
+# SIM117 wants `with mock_api(...), pytest.raises(...):` as one statement. The
+# two contexts mean different things here — one scopes the fake API, the other
+# asserts — and collapsing them needs a wrapped parenthesised `with` that reads
+# worse than the nesting it replaces.
+"tests/**" = ["SIM117"]

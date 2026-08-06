@@ -133,17 +133,28 @@ serves it over HTTP instead, which is the only transport on which the
 is reachable; the stdio handshake tops out at 2025-11-25. Keep it on loopback
 either way: the token grants access to your entire reading history.
 
-## Tests
+## Tests and linting
 
 ```sh
-uv run test_goodlinks.py
+uv run pytest                 # 91 tests, well under a second
+uv run ruff check             # lint
+uv run ruff format            # format (--check to only report)
 ```
 
 No GoodLinks instance, network, or `.env` is needed — every HTTP call is served
-by an `httpx.MockTransport`, so the suite is hermetic and runs in well under a
-second. It covers the shared client's error translation and query-parameter
-handling, the MCP server's projection, pagination, and tool schemas, and the
-viewer's paging, caching, and error mapping.
+by an `httpx.MockTransport`, so the suite is hermetic.
+
+One test module per source module, with the shared mocking harness in
+`tests/conftest.py`:
+
+| File | Covers |
+| ---- | ------ |
+| `tests/test_client.py` | `goodlinks_client`: error translation, query-parameter encoding, response shapes |
+| `tests/test_mcp.py` | `goodlinks_mcp`: link projection, pagination, tool schemas, article slicing |
+| `tests/test_server.py` | `goodlinks_server`: paging, caching, error mapping, static routes |
+
+Both the tests and the ruff checks run in CI on pull requests, on demand, and
+weekly.
 
 ## Offline cache
 

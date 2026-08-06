@@ -84,13 +84,10 @@ async def request(
 
     if resp.status_code == 401:
         raise GoodLinksError(
-            "GoodLinks rejected the API token (401). Check GOODLINKS_TOKEN against "
-            "Settings -> API."
+            "GoodLinks rejected the API token (401). Check GOODLINKS_TOKEN against Settings -> API."
         )
     if resp.status_code == 404:
-        raise GoodLinksError(
-            not_found or f"Not found: {path}. The link may have been deleted."
-        )
+        raise GoodLinksError(not_found or f"Not found: {path}. The link may have been deleted.")
     if resp.status_code == 400:
         raise GoodLinksError(f"GoodLinks rejected the request (400): {resp.text.strip()[:300]}")
     if resp.status_code >= 400:
@@ -194,9 +191,7 @@ async def fetch_content(link_id: str, fmt: str) -> str:
                 value = payload.get(key)
                 if isinstance(value, str):
                     return value
-        raise GoodLinksError(
-            f"Could not find article text in the response for link {link_id}."
-        )
+        raise GoodLinksError(f"Could not find article text in the response for link {link_id}.")
 
     return resp.text
 
