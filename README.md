@@ -6,7 +6,7 @@ A small local web front-end for the [GoodLinks](https://goodlinks.app) API: brow
 
 - macOS with GoodLinks 3.2+ running, and the API enabled (GoodLinks → Settings → API)
 - [uv](https://docs.astral.sh/uv/) — the script declares its own dependencies (FastAPI, uvicorn, httpx), so no manual install is needed
-- `index.html` and `sw.js` must sit next to `goodlinks_server.py` (they're served from disk)
+- `index.html`, `sw.js`, and `goodlinks_client.py` must sit next to `goodlinks_server.py` (the first two are served from disk; the third is the shared GoodLinks API client)
 
 ## Start
 

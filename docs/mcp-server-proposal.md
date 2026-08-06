@@ -475,14 +475,17 @@ Suggested layout:
 
 ```
 goodlinks_client.py     # shared async client: auth, paging, error translation
-goodlinks_server.py     # existing FastAPI viewer
+goodlinks_server.py     # FastAPI viewer, imports the client
 goodlinks_mcp.py        # MCP server, imports the client
 ```
 
-`goodlinks_client.py` exists and backs the MCP server. The viewer has **not**
-been switched over to it — it works today, and rewriting a component nobody
-asked about is a poor trade against the small duplication. Adopting it there
-is a clean follow-up whenever the viewer is next touched.
+Both entry points now go through `goodlinks_client.py`, so there is one
+implementation of the auth header, the paging loop, and the "GoodLinks isn't
+running" message. The viewer's `/api/links` gained two things from the move:
+its 401 and connection failures now carry the client's fuller messages, and
+its paging advances by the number of links actually returned rather than by
+the requested page size — the old loop would have skipped links had GoodLinks
+ever returned a short page alongside `hasMore: true`.
 
 Config stays environment-driven and identical to today: `GOODLINKS_TOKEN`,
 `GOODLINKS_API`.
