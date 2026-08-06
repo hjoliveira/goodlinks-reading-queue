@@ -15,9 +15,13 @@ Talks to GoodLinks through goodlinks_client.py, which must sit next to this
 file (as index.html and sw.js do).
 
 Usage:
-    GOODLINKS_TOKEN=your-api-token uv run goodlinks_server.py
+    uv run --env-file .env goodlinks_server.py
 
-Optional environment variables:
+Configuration comes from that .env file (copy .env.example), or from the
+environment directly. Required:
+    GOODLINKS_TOKEN  API token, from GoodLinks Settings -> API
+
+Optional:
     GOODLINKS_API   Base URL of the GoodLinks API (default http://localhost:9428/api/v1)
     PORT            Port for this server (default 8300)
     HOST            Bind address (default 127.0.0.1; use 0.0.0.0 to expose on your Tailnet)
@@ -78,7 +82,11 @@ async def service_worker() -> FileResponse:
 
 if __name__ == "__main__":
     if not gl.TOKEN:
-        raise SystemExit("Set GOODLINKS_TOKEN (Settings -> API in GoodLinks).")
+        raise SystemExit(
+            "GOODLINKS_TOKEN is not set. Put it in .env (copy .env.example) and "
+            "start with: uv run --env-file .env <script>. The token is in "
+            "GoodLinks under Settings -> API."
+        )
     uvicorn.run(
         app,
         host=os.environ.get("HOST", "127.0.0.1"),

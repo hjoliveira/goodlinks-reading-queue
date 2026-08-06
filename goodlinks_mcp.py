@@ -18,9 +18,13 @@ nothing it does can modify or delete a link. Requires GoodLinks 3.2+ with the
 API enabled (Settings -> API).
 
 Usage:
-    GOODLINKS_TOKEN=your-api-token uv run goodlinks_mcp.py
+    uv run --env-file .env goodlinks_mcp.py
 
-Optional environment variables:
+Configuration comes from that .env file (copy .env.example), or from the
+environment directly. Required:
+    GOODLINKS_TOKEN  API token, from GoodLinks Settings -> API
+
+Optional:
     GOODLINKS_API   Base URL of the GoodLinks API (default http://localhost:9428/api/v1)
 """
 
@@ -481,7 +485,11 @@ if __name__ == "__main__":
     import os
 
     if not gl.TOKEN:
-        raise SystemExit("Set GOODLINKS_TOKEN (Settings -> API in GoodLinks).")
+        raise SystemExit(
+            "GOODLINKS_TOKEN is not set. Put it in .env (copy .env.example) and "
+            "start with: uv run --env-file .env <script>. The token is in "
+            "GoodLinks under Settings -> API."
+        )
 
     # stdio suits a local server and is what most clients launch. The
     # streamable-http option exists because the 2026-07-28 revision is only

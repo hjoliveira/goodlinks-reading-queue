@@ -5,28 +5,52 @@ A small local web front-end for the [GoodLinks](https://goodlinks.app) API: brow
 ## Requirements
 
 - macOS with GoodLinks 3.2+ running, and the API enabled (GoodLinks → Settings → API)
-- [uv](https://docs.astral.sh/uv/) — the script declares its own dependencies (FastAPI, uvicorn, httpx), so no manual install is needed
+- [uv](https://docs.astral.sh/uv/) — each script declares its own dependencies, so no manual install is needed
 - `index.html`, `sw.js`, and `goodlinks_client.py` must sit next to `goodlinks_server.py` (the first two are served from disk; the third is the shared GoodLinks API client)
+
+## Setup
+
+Both servers take their configuration from a `.env` file, which `uv` loads via
+`--env-file`. Create it once:
+
+```sh
+cp .env.example .env
+```
+
+then put your token in it — it's shown in GoodLinks under Settings → API:
+
+```sh
+GOODLINKS_TOKEN=your-api-token
+```
+
+`.env` is gitignored, and since it holds a credential to your whole reading
+history, `chmod 600 .env` is worth the two seconds.
 
 ## Start
 
 ```sh
-GOODLINKS_TOKEN=your-api-token uv run goodlinks_server.py
+uv run --env-file .env goodlinks_server.py
 ```
 
 Then open <http://127.0.0.1:8300>.
 
-The token is shown in GoodLinks under Settings → API.
-
 ## Configuration
 
-Optional environment variables:
+Everything below goes in `.env` (see `.env.example`). All of it is optional —
+only `GOODLINKS_TOKEN` is required.
 
 | Variable         | Default                          | Purpose                                              |
 | ---------------- | -------------------------------- | ---------------------------------------------------- |
 | `GOODLINKS_API`  | `http://localhost:9428/api/v1`   | Base URL of the GoodLinks API                        |
 | `PORT`           | `8300`                           | Port for this server                                 |
 | `HOST`           | `127.0.0.1`                      | Bind address (`0.0.0.0` to expose on your Tailnet)   |
+
+Variables already set in your shell win over the file, so a one-off override
+still works without editing it:
+
+```sh
+PORT=9000 uv run --env-file .env goodlinks_server.py
+```
 
 The server caches links for 60 seconds; hit `/api/links?refresh=true` to force a refetch.
 
@@ -47,16 +71,18 @@ delete a link.
 Run it directly:
 
 ```sh
-GOODLINKS_TOKEN=your-api-token uv run goodlinks_mcp.py
+uv run --env-file .env goodlinks_mcp.py
 ```
 
 Or register it with a client — for Claude Code:
 
 ```sh
-claude mcp add goodlinks -- uv run /full/path/to/goodlinks_mcp.py
+claude mcp add goodlinks -- uv run --env-file /full/path/to/.env /full/path/to/goodlinks_mcp.py
 ```
 
-with `GOODLINKS_TOKEN` set in that client's environment.
+Use absolute paths for both here. An MCP client launches the server from
+whatever working directory it happens to have, so a bare `--env-file .env`
+would find the file only by luck.
 
 Both list tools return at most 200 links per call and report `has_more` plus a
 `next_offset` to page with; long articles come back in `max_chars` slices with
