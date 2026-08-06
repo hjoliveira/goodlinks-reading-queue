@@ -1,11 +1,3 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "fastapi>=0.115",
-#     "uvicorn>=0.30",
-#     "httpx>=0.27",
-# ]
-# ///
 """Local web front-end for the GoodLinks API.
 
 Runs on the same Mac as GoodLinks (3.2+, API enabled in Settings -> API).

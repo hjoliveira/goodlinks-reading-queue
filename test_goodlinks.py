@@ -1,13 +1,3 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "pytest>=8.0",
-#     "mcp>=2.0",
-#     "httpx>=0.27",
-#     "fastapi>=0.115",
-#     "uvicorn>=0.30",
-# ]
-# ///
 """Unit tests for the GoodLinks client, MCP server, and web viewer.
 
 Run with:

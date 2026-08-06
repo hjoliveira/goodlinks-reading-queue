@@ -5,7 +5,7 @@ A small local web front-end for the [GoodLinks](https://goodlinks.app) API: brow
 ## Requirements
 
 - macOS with GoodLinks 3.2+ running, and the API enabled (GoodLinks → Settings → API)
-- [uv](https://docs.astral.sh/uv/) — each script declares its own dependencies, so no manual install is needed
+- [uv](https://docs.astral.sh/uv/) — dependencies live in `pyproject.toml` and are pinned by `uv.lock`; `uv run` provisions the environment on first use, so there is nothing to install by hand
 - `index.html`, `sw.js`, and `goodlinks_client.py` must sit next to `goodlinks_server.py` (the first two are served from disk; the third is the shared GoodLinks API client)
 
 ## Setup
@@ -77,7 +77,7 @@ uv run --env-file .env goodlinks_mcp.py
 Or register it with a client — for Claude Code:
 
 ```sh
-claude mcp add goodlinks -- uv run --env-file /full/path/to/.env /full/path/to/goodlinks_mcp.py
+claude mcp add goodlinks -- uv run --project /full/path/to/repo --env-file /full/path/to/.env /full/path/to/goodlinks_mcp.py
 ```
 
 For Claude Desktop, add this to
@@ -92,6 +92,7 @@ window is not enough:
       "command": "/Users/you/.local/bin/uv",
       "args": [
         "run",
+        "--project", "/Users/you/goodlinks-reading-queue",
         "--env-file", "/Users/you/goodlinks-reading-queue/.env",
         "/Users/you/goodlinks-reading-queue/goodlinks_mcp.py"
       ]
@@ -108,11 +109,13 @@ Two things about that config are load-bearing:
   invisible to it. Run `which uv` and paste the result (Homebrew installs sit
   at `/opt/homebrew/bin/uv`). A server that never appears, with an `ENOENT` in
   `~/Library/Logs/Claude/mcp-server-goodlinks.log`, is this.
-- **Every path is absolute, `.env` included.** A client launches the server
-  from whatever working directory it happens to have, so a bare
-  `--env-file .env` would find the file only by luck. The script itself is
-  fine either way — Python resolves its `goodlinks_client` import relative to
-  the script, not the working directory.
+- **Every path is absolute, and `--project` is required.** A client launches
+  the server from whatever working directory it happens to have. `uv`
+  discovers `pyproject.toml` from the *working directory*, not from the script
+  path, so without `--project` it finds no project, installs no dependencies,
+  and the server dies with `ModuleNotFoundError: No module named 'mcp'`. The
+  same reasoning applies to `--env-file`. The script's own imports are fine
+  either way — Python resolves `goodlinks_client` relative to the script.
 
 You can inline the token as an `"env": {"GOODLINKS_TOKEN": "..."}` block
 instead of using `--env-file`. It works, but it puts the credential in a file

@@ -37,8 +37,10 @@ jobs:
       - name: Verify uv is on PATH
         run: uv --version
 
-      # uv reads the PEP 723 header in the script and provisions Python plus
-      # the test dependencies itself. The suite is hermetic — it mocks every
-      # HTTP call — so no GoodLinks instance, token, or .env is needed.
+      # uv provisions Python and the environment from pyproject.toml, including
+      # the dev group that carries pytest. --locked fails if uv.lock has drifted
+      # from pyproject.toml rather than silently resolving something else. The
+      # suite is hermetic — it mocks every HTTP call — so no GoodLinks instance,
+      # token, or .env is needed.
       - name: Run tests
-        run: uv run test_goodlinks.py
+        run: uv run --locked test_goodlinks.py
