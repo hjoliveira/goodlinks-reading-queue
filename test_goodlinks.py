@@ -699,10 +699,26 @@ class TestFetchAllLinks:
         assert [x["id"] for x in links] == ["id000", "id001", "id002", "id003"]
 
     def test_empty_page_with_has_more_terminates(self):
-        """Guards against an infinite loop if the API ever misreports hasMore."""
-        with mock_api(json_route({"/lists/all": {"data": [], "hasMore": True}})):
-            links = asyncio.run(asyncio.wait_for(viewer.fetch_all_links(), timeout=5))
+        """Guards against an infinite loop if the API ever misreports hasMore.
+
+        The circuit breaker lives in the handler rather than in an
+        asyncio.wait_for timeout: MockTransport resolves synchronously, so a
+        runaway loop never suspends and a cancellation could never be
+        delivered. Failing the request is the only way to break out.
+        """
+        calls: list[httpx.Request] = []
+
+        def handler(request):
+            calls.append(request)
+            if len(calls) > 20:
+                raise AssertionError("fetch_all_links kept paging past an empty page")
+            return httpx.Response(200, json={"data": [], "hasMore": True})
+
+        with mock_api(handler):
+            links = asyncio.run(viewer.fetch_all_links())
+
         assert links == []
+        assert len(calls) == 1, "an empty page should end paging immediately"
 
     def test_requests_the_maximum_page_size(self):
         seen: list[httpx.Request] = []
