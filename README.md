@@ -145,3 +145,7 @@ viewer's paging, caching, and error mapping.
 ## Offline cache
 
 The browser caches the page and the last fetched link list client-side (a service worker plus Cache Storage). If the server or GoodLinks is unreachable — laptop asleep, app quit, API disabled — the page still loads with the last known list and shows an "Offline — cached list from …" notice. The cache is per-browser and is filled on the first successful visit, so a browser that has never loaded the page while the server was up has nothing to fall back on.
+
+## License
+
+[MIT](LICENSE). GoodLinks itself is a separate commercial app and is not covered by this licence.
