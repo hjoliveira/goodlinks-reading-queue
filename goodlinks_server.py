@@ -1,20 +1,19 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "fastapi>=0.115",
-#     "uvicorn>=0.30",
-#     "httpx>=0.27",
-# ]
-# ///
 """Local web front-end for the GoodLinks API.
 
 Runs on the same Mac as GoodLinks (3.2+, API enabled in Settings -> API).
 The API token stays server-side; the browser only talks to this app.
 
-Usage:
-    GOODLINKS_TOKEN=your-api-token uv run goodlinks_server.py
+Talks to GoodLinks through goodlinks_client.py, which must sit next to this
+file (as index.html and sw.js do).
 
-Optional environment variables:
+Usage:
+    uv run --env-file .env goodlinks_server.py
+
+Configuration comes from that .env file (copy .env.example), or from the
+environment directly. Required:
+    GOODLINKS_TOKEN  API token, from GoodLinks Settings -> API
+
+Optional:
     GOODLINKS_API   Base URL of the GoodLinks API (default http://localhost:9428/api/v1)
     PORT            Port for this server (default 8300)
     HOST            Bind address (default 127.0.0.1; use 0.0.0.0 to expose on your Tailnet)
@@ -24,17 +23,15 @@ import os
 import time
 from pathlib import Path
 
-import httpx
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
+import goodlinks_client as gl
+
 BASE_DIR = Path(__file__).resolve().parent
 
-GOODLINKS_API = os.environ.get("GOODLINKS_API", "http://localhost:9428/api/v1")
-TOKEN = os.environ.get("GOODLINKS_TOKEN", "")
-PAGE_SIZE = 1000  # GoodLinks API maximum per page
-CACHE_TTL = 60    # seconds
+CACHE_TTL = 60  # seconds
 
 app = FastAPI(title="GoodLinks Viewer")
 
@@ -45,22 +42,12 @@ async def fetch_all_links() -> list[dict]:
     """Page through /lists/all and return every link in the library."""
     links: list[dict] = []
     offset = 0
-    headers = {"Authorization": f"Bearer {TOKEN}"}
-    async with httpx.AsyncClient(timeout=30) as client:
-        while True:
-            resp = await client.get(
-                f"{GOODLINKS_API}/lists/all",
-                params={"limit": PAGE_SIZE, "offset": offset},
-                headers=headers,
-            )
-            if resp.status_code == 401:
-                raise HTTPException(502, "GoodLinks rejected the token (401). Check GOODLINKS_TOKEN.")
-            resp.raise_for_status()
-            page = resp.json()
-            links.extend(page["data"])
-            if not page.get("hasMore"):
-                return links
-            offset += PAGE_SIZE
+    while True:
+        page, has_more = await gl.fetch_links("all", limit=gl.API_PAGE_MAX, offset=offset)
+        links.extend(page)
+        if not has_more or not page:
+            return links
+        offset += len(page)
 
 
 @app.get("/api/links")
@@ -70,12 +57,8 @@ async def api_links(refresh: bool = False) -> JSONResponse:
         try:
             _cache["links"] = await fetch_all_links()
             _cache["at"] = time.monotonic()
-        except httpx.HTTPError:
-            raise HTTPException(
-                502,
-                "Could not reach the GoodLinks API. Is GoodLinks running and the API "
-                f"enabled? (tried {GOODLINKS_API})",
-            )
+        except gl.GoodLinksError as exc:
+            raise HTTPException(502, str(exc)) from exc
     return JSONResponse({"links": _cache["links"]})
 
 
@@ -90,8 +73,12 @@ async def service_worker() -> FileResponse:
 
 
 if __name__ == "__main__":
-    if not TOKEN:
-        raise SystemExit("Set GOODLINKS_TOKEN (Settings -> API in GoodLinks).")
+    if not gl.TOKEN:
+        raise SystemExit(
+            "GOODLINKS_TOKEN is not set. Put it in .env (copy .env.example) and "
+            "start with: uv run --env-file .env <script>. The token is in "
+            "GoodLinks under Settings -> API."
+        )
     uvicorn.run(
         app,
         host=os.environ.get("HOST", "127.0.0.1"),
