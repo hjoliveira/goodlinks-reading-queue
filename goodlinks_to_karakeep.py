@@ -14,7 +14,7 @@ import argparse
 import asyncio
 import html
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import goodlinks_client as gl
@@ -42,7 +42,7 @@ def to_unix(value: Any) -> int | None:
     text = str(value).replace("Z", "+00:00")
     dt = datetime.fromisoformat(text)
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return int(dt.timestamp())
 
 
@@ -68,7 +68,7 @@ def to_line(link: dict[str, Any], status_tags: bool) -> str | None:
 
 
 def build(links: list[dict[str, Any]], status_tags: bool) -> str:
-    lines = [ln for ln in (to_line(l, status_tags) for l in links) if ln]
+    lines = [ln for ln in (to_line(link, status_tags) for link in links) if ln]
     return "\n".join(
         [
             "<!DOCTYPE NETSCAPE-Bookmark-file-1>",
